@@ -1,32 +1,17 @@
 package org.sqldroid;
 
-import java.io.IOException;
+import android.annotation.TargetApi;
+import android.database.Cursor;
+import android.os.Build;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.NClob;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Map;
-
-import android.database.Cursor;
 
 public class SQLDroidResultSet implements ResultSet {
     public static boolean dump = false;
@@ -68,7 +53,6 @@ public class SQLDroidResultSet implements ResultSet {
 
   /**
    * convert JDBC column index (one-based) to sqlite column index (zero-based)
-   * @param colID
    */
   private int ci(int colID) {
     return colID - 1;
@@ -173,28 +157,41 @@ public class SQLDroidResultSet implements ResultSet {
 
   @Override
   public BigDecimal getBigDecimal(int colID) throws SQLException {
-    System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return null;
+    return getBigDecimal(colID, 0);
   }
 
   @Override
   public BigDecimal getBigDecimal(String columnName) throws SQLException {
-    System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return null;
+    int index = findColumn(columnName);
+    return getBigDecimal(index, 0);
+  }
+
+  @TargetApi(Build.VERSION_CODES.GINGERBREAD)
+  @Override
+  public BigDecimal getBigDecimal(int colID, int scale) throws SQLException {
+    lastColumnRead = colID;
+    int newIndex = ci(colID);
+    try {
+      switch(SQLDroidResultSetMetaData.getType(c, newIndex)) {
+        case 2:
+          return BigDecimal.valueOf(c.getDouble(newIndex)).setScale(scale, BigDecimal.ROUND_HALF_DOWN);
+        case 1: // Cursor.FIELD_TYPE_INTEGER:
+          return BigDecimal.valueOf(c.getLong(newIndex), scale);
+        case 0: // Cursor.FIELD_TYPE_NULL:
+          return null;
+        case 3: // Cursor.FIELD_TYPE_STRING:
+        default:
+          return new BigDecimal(c.getString(newIndex)).setScale(scale, BigDecimal.ROUND_HALF_DOWN);
+      }
+    } catch (RuntimeException e) {
+      throw new SQLDataException("Requested BigDecimal from incapable ResultSet", e);
+    }
   }
 
   @Override
-  public BigDecimal getBigDecimal(int colID, int scale)
-  throws SQLException {
-    System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return null;
-  }
-
-  @Override
-  public BigDecimal getBigDecimal(String columnName, int scale)
-  throws SQLException {
-    System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return null;
+  public BigDecimal getBigDecimal(String columnName, int scale) throws SQLException {
+    int index = findColumn(columnName);
+    return getBigDecimal(index, scale);
   }
 
   @Override
@@ -264,7 +261,7 @@ public class SQLDroidResultSet implements ResultSet {
             byte [] bytes = c.getBlob(ci(index));
             // SQLite includes the zero-byte at the end for Strings.
             if (SQLDroidResultSetMetaData.getType(c, ci(index)) == 3) { //  Cursor.FIELD_TYPE_STRING
-		        bytes = Arrays.copyOf(bytes, bytes.length - 1);
+              System.arraycopy(bytes, 0, new byte[bytes.length - 1], 0, bytes.length - 1);
             }
             return bytes;
         } catch (android.database.SQLException e) {
@@ -308,7 +305,7 @@ public class SQLDroidResultSet implements ResultSet {
   @Override
   public int getConcurrency() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return 0;
+    return CONCUR_READ_ONLY;
   }
 
   @Override
@@ -360,7 +357,7 @@ public class SQLDroidResultSet implements ResultSet {
   @Override
   public int getFetchDirection() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return 0;
+    return FETCH_UNKNOWN;
   }
 
   @Override
@@ -422,26 +419,26 @@ public class SQLDroidResultSet implements ResultSet {
     return new SQLDroidResultSetMetaData(c);
   }
 
-    @Override
-    public Object getObject(int colID) throws SQLException {
-        lastColumnRead = colID;
-        int newIndex = ci(colID);
-        switch(SQLDroidResultSetMetaData.getType(c, newIndex)) {
-            case 4: // Cursor.FIELD_TYPE_BLOB:
-                //CONVERT TO BYTE[] OBJECT
-                return new SQLDroidBlob(c.getBlob(newIndex));
-            case 2: // Cursor.FIELD_TYPE_FLOAT:
-                return new Float(c.getFloat(newIndex));
-            case 1: // Cursor.FIELD_TYPE_INTEGER:
-                return new Integer(c.getInt(newIndex));
-            case 3: // Cursor.FIELD_TYPE_STRING:
-                return c.getString(newIndex);
-            case 0: // Cursor.FIELD_TYPE_NULL:
-                return null;
-            default:
-                return c.getString(newIndex);
-        }
+  @Override
+  public Object getObject(int colID) throws SQLException {
+    lastColumnRead = colID;
+    int newIndex = ci(colID);
+    switch (SQLDroidResultSetMetaData.getType(c, newIndex)) {
+      case 4: // Cursor.FIELD_TYPE_BLOB:
+        //CONVERT TO BYTE[] OBJECT
+        return new SQLDroidBlob(c.getBlob(newIndex));
+      case 2: // Cursor.FIELD_TYPE_FLOAT:
+        return c.getFloat(newIndex);
+      case 1: // Cursor.FIELD_TYPE_INTEGER:
+        return c.getLong(newIndex);
+      case 3: // Cursor.FIELD_TYPE_STRING:
+        return c.getString(newIndex);
+      case 0: // Cursor.FIELD_TYPE_NULL:
+        return null;
+      default:
+        return c.getString(newIndex);
     }
+  }
 
   @Override
   public Object getObject(String columnName) throws SQLException {
@@ -1102,7 +1099,7 @@ public class SQLDroidResultSet implements ResultSet {
   @Override
   public int getHoldability() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line " + DebugPrinter.getLineNumber());
-    return 0;
+    return CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override

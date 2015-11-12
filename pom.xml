@@ -4,7 +4,7 @@
     <artifactId>sqldroid</artifactId>
     <version>1.0.4-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>sqldroid</name>
+    <name>sqldroid-wared</name>
     <description>SQLite JDBC driver for Android &amp; now also for non-Android platforms</description>
     <url>https://github.com/SQLDroid/SQLDroid</url>
     <licenses>
@@ -15,9 +15,9 @@
         </license>
     </licenses>
     <scm>
-        <connection>scm:git:git@github.com:SQLDroid/SQLDroid.git</connection>
-        <url>scm:git:git@github.com:SQLDroid/SQLDroid.git</url>
-        <developerConnection>scm:git:git@github.com:SQLDroid/SQLDroid.git</developerConnection>
+        <connection>scm:git:git@github.com:adiosmsu/SQLDroid-wared.git</connection>
+        <url>scm:git:git@github.com:adiosmsu/SQLDroid-wared.git</url>
+        <developerConnection>scm:git:git@github.com:adiosmsu/SQLDroid-wared.git</developerConnection>
     </scm>
     <developers>
         <developer>
@@ -40,13 +40,16 @@
                 <role>Contributor</role>
             </roles>
         </developer>
+        <developer>
+            <id>adios</id>
+            <name>Michael Kulikov</name>
+            <email>adiosmsu{at}gmail.com</email>
+            <timezone>+3</timezone>
+            <roles>
+                <role>Fork maintainer</role>
+            </roles>
+        </developer>
     </developers>
-    <distributionManagement>
-        <repository>
-            <id>bintray</id>
-            <url>https://api.bintray.com/maven/yanaga/maven/sqldroid</url>
-        </repository>
-    </distributionManagement>
     <properties>
         <android.platform>2.3.3</android.platform>
         <android.apilevel>10</android.apilevel>
@@ -94,7 +97,7 @@
                 <plugins>
                     <plugin>
                         <artifactId>maven-source-plugin</artifactId>
-                        <version>2.3</version>
+                        <version>2.2.1</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>

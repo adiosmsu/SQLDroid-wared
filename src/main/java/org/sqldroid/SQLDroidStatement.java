@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 
-public class SQLDroidStatement implements Statement {
+public class SQLDroidStatement extends AbstractSQLDroidStatement implements Statement {
 
   private SQLiteDatabase db;
   private SQLDroidConnection sqldroidConnection;
@@ -98,9 +98,7 @@ public class SQLDroidStatement implements Statement {
       updateCount = db.changedRowCount();
     }
 
-    boolean resultSetAvailable = (rs != null);
-
-    return resultSetAvailable;
+    return (rs != null);
   }
 
   @Override
@@ -184,7 +182,7 @@ public class SQLDroidStatement implements Statement {
   public int getFetchDirection() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
-    return 0;
+    return ResultSet.FETCH_UNKNOWN;
   }
 
   @Override
@@ -202,13 +200,6 @@ public class SQLDroidStatement implements Statement {
 
   @Override
   public int getMaxFieldSize() throws SQLException {
-    System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line "
-        + DebugPrinter.getLineNumber());
-    return 0;
-  }
-
-  @Override
-  public int getMaxRows() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
     return 0;
@@ -243,7 +234,7 @@ public class SQLDroidStatement implements Statement {
   public int getResultSetConcurrency() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
-    return 0;
+    return ResultSet.CONCUR_READ_ONLY;
   }
 
   @Override
@@ -257,7 +248,7 @@ public class SQLDroidStatement implements Statement {
   public int getResultSetType() throws SQLException {
     System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
-    return 0;
+    return ResultSet.TYPE_FORWARD_ONLY;
   }
 
   @Override
@@ -313,16 +304,13 @@ public class SQLDroidStatement implements Statement {
   }
 
   @Override
-  public void setMaxRows(int max) throws SQLException {
-    if (isClosed()) {
-      throw new SQLException("Statement is closed.");
-    } else if (max < 0) {
-      throw new SQLException("Max rows must be zero or positive. Got " + max);
-    } else if (max == 0) {
-      maxRows = null;
-    } else {
-      maxRows = max;
-    }
+  protected void setMaxRowsInner(Integer max) {
+    maxRows = max;
+  }
+
+  @Override
+  public int getMaxRows() throws SQLException {
+    return maxRows != null ? maxRows : 0;
   }
 
   @Override

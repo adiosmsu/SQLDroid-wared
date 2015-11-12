@@ -36,9 +36,9 @@ public class SQLDroidConnection implements Connection {
             new HashMap<SQLDroidConnection, SQLiteDatabase>();
 
     /** The Android sqlitedb. */
-    private SQLiteDatabase sqlitedb;
+    private volatile SQLiteDatabase sqlitedb;
 
-    private boolean autoCommit = true;
+    private volatile boolean autoCommit = true;
 
     /** Will have the value 9 or greater the version of SQLException has the constructor:
      * SQLException(Throwable theCause) otherwise false.
@@ -46,7 +46,7 @@ public class SQLDroidConnection implements Connection {
      * If the value is positive and less than 9 then the SQLException does not have the constructor.
      * If the value is &lt; 0 then the capabilities of SQLException have not been determined.
      */
-    protected static int sqlThrowable = -1;
+    protected static volatile int sqlThrowable = -1;
 
     /** Connect to the database with the given url and properties.
      *
@@ -104,6 +104,7 @@ public class SQLDroidConnection implements Connection {
             }
         }
         Log.v("opening database " + dbQname);
+        //noinspection PointlessBitwiseExpression
         int flags = android.database.sqlite.SQLiteDatabase.CREATE_IF_NECESSARY
                 | android.database.sqlite.SQLiteDatabase.OPEN_READWRITE
                 | android.database.sqlite.SQLiteDatabase.NO_LOCALIZED_COLLATORS;
@@ -115,7 +116,7 @@ public class SQLDroidConnection implements Connection {
                 } catch ( NumberFormatException nfe ) {
                     Log.e("Error Parsing DatabaseFlags \"" + info.getProperty(SQLDroidDriver.DATABASE_FLAGS) + " not a number ", nfe);
                 }
-            } else if ( info != null && info.getProperty(SQLDroidDriver.ADDITONAL_DATABASE_FLAGS) != null ) {
+            } else if ( info.getProperty(SQLDroidDriver.ADDITONAL_DATABASE_FLAGS) != null ) {
                 try {
                     int extraFlags = Integer.parseInt(info.getProperty(SQLDroidDriver.ADDITONAL_DATABASE_FLAGS));
                     flags |= extraFlags;
@@ -154,8 +155,8 @@ public class SQLDroidConnection implements Connection {
                 //return new SQLException (sqlException);
                 // creating by reflection is significantly slower, but since Exceptions should be unusual
                 // this should not be a performance issue.
-                final Constructor<?> c = SQLException.class.getDeclaredConstructor(new Class[] {Throwable.class});
-                return (SQLException)c.newInstance(new Object[]{sqlException});
+                final Constructor<?> c = SQLException.class.getDeclaredConstructor(Throwable.class);
+                return (SQLException)c.newInstance(sqlException);
             } catch ( Exception e) {
                 sqlThrowable = 1;
             }
@@ -164,10 +165,10 @@ public class SQLDroidConnection implements Connection {
         // to go through this clause and create a SQLDroidSQLException
         try {
             // avoid a direct reference to the sqldroidSQLException so that app > API level 9 do not need that class.
-            final Constructor<?> c = SQLDroidConnection.class.getClassLoader().loadClass("org.sqldroid.SQLDroidSQLException").getDeclaredConstructor(new Class[] {android.database.SQLException.class});
+            final Constructor<?> c = SQLDroidConnection.class.getClassLoader().loadClass("org.sqldroid.SQLDroidSQLException").getDeclaredConstructor(android.database.SQLException.class);
             // SQLDroidSQLException is an instance of (direct subclass of) SQLException, so the cast below is correct although
             // the instance created will always be a SQLDroidSQLException
-            return (SQLException)c.newInstance(new Object[]{sqlException});
+            return (SQLException)c.newInstance(sqlException);
         } catch (Exception e) {
             return new SQLException ("Unable to Chain SQLException " + sqlException.getMessage());
         }
@@ -253,7 +254,7 @@ public class SQLDroidConnection implements Connection {
     public int getTransactionIsolation() throws SQLException {
         System.err.println(" ********************* not implemented @ " + DebugPrinter.getFileName() + " line "
                 + DebugPrinter.getLineNumber());
-        return 0;
+        return TRANSACTION_NONE;
     }
 
     @Override

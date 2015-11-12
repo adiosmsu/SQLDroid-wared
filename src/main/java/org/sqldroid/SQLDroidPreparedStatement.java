@@ -9,28 +9,12 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.NClob;
-import java.sql.ParameterMetaData;
-import java.sql.PreparedStatement;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-public class SQLDroidPreparedStatement implements PreparedStatement {
+public class SQLDroidPreparedStatement extends AbstractSQLDroidStatement implements PreparedStatement {
 
   protected SQLiteDatabase db;
   protected SQLDroidConnection sqldroidConnection;
@@ -62,6 +46,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
    * is -1 then we just return it from getUpdateCount.
    */
   public int updateCount = -1;
+  private Statement genKeysStmt;
 
   public SQLDroidPreparedStatement(String sql, SQLDroidConnection sqldroid) {
     Log.v("SQLDRoid", "new SqlDRoid prepared statement from " + sqldroid);
@@ -152,7 +137,19 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
         rs.close();
       }
     } finally {
+      closeGenKeysStmt();
       rs = null;
+    }
+  }
+
+  private void closeGenKeysStmt() {
+    try {
+      if (genKeysStmt != null) {
+        genKeysStmt.close();
+      }
+    } catch (SQLException ignore) {
+      System.err.println("Closing generated keys statement error");
+      ignore.printStackTrace(System.err);
     }
   }
 
@@ -194,10 +191,12 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
 
   /** Close the result set (if open) and null the rs variable. */
   public void closeResultSet() throws SQLException {
-    if (rs != null && !rs.isClosed()) {
-      if (!rs.isClosed()) {
+    try {
+      if (rs != null && !rs.isClosed()) {
         rs.close();
       }
+    } finally {
+      closeGenKeysStmt();
       rs = null;
     }
   }
@@ -322,7 +321,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
     System.err.println(" ********************* not implemented @ "
         + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
-    return 0;
+    return ResultSet.FETCH_UNKNOWN;
   }
 
   @Override
@@ -335,10 +334,8 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
 
   @Override
   public ResultSet getGeneratedKeys() throws SQLException {
-    System.err.println(" ********************* not implemented @ "
-        + DebugPrinter.getFileName() + " line "
-        + DebugPrinter.getLineNumber());
-    return null;
+    genKeysStmt = sqldroidConnection.createStatement();
+    return genKeysStmt.executeQuery("SELECT last_insert_rowid()");
   }
 
   @Override
@@ -351,7 +348,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
 
   @Override
   public int getMaxRows() throws SQLException {
-    return maxRows;
+    return maxRows != null ? maxRows : 0;
   }
 
   @Override
@@ -389,7 +386,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
     System.err.println(" ********************* not implemented @ "
         + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
-    return 0;
+    return ResultSet.CONCUR_READ_ONLY;
   }
 
   @Override
@@ -405,7 +402,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
     System.err.println(" ********************* not implemented @ "
         + DebugPrinter.getFileName() + " line "
         + DebugPrinter.getLineNumber());
-    return 0;
+    return ResultSet.TYPE_FORWARD_ONLY;
   }
 
   /**Retrieves the current result as an update count; if the result is a ResultSet object or there are no more results, -1 is returned. This method should be called only once per result.
@@ -468,16 +465,8 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
   }
 
   @Override
-  public void setMaxRows(int max) throws SQLException {
-      if (isClosed()) {
-          throw new SQLException("Statement is closed.");
-        } else if (max < 0) {
-          throw new SQLException("Max rows must be zero or positive. Got " + max);
-        } else if (max == 0) {
-          maxRows = null;
-        } else {
-          maxRows = max;
-        }
+  protected void setMaxRowsInner(Integer max) {
+    maxRows = max;
   }
 
   @Override
@@ -558,7 +547,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
     }
     final int bufferSize = 8192;
     byte[] buffer = new byte[bufferSize];
-    ByteArrayOutputStream outputStream = null;
+    ByteArrayOutputStream outputStream;
     try {
       outputStream = new ByteArrayOutputStream();
       int bytesRemaining = length;
@@ -639,25 +628,25 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
   public void setDouble(int parameterIndex, double theDouble) throws SQLException {
 
     ensureCap(parameterIndex);
-    setObj(parameterIndex, new Double(theDouble));
+    setObj(parameterIndex, theDouble);
   }
 
   @Override
   public void setFloat(int parameterIndex, float theFloat) throws SQLException {
     ensureCap(parameterIndex);
-    setObj(parameterIndex, new Double(theFloat));
+    setObj(parameterIndex, (double) theFloat);
   }
 
   @Override
   public void setInt(int parameterIndex, int theInt) throws SQLException {
     ensureCap(parameterIndex);
-    setObj(parameterIndex, new Long(theInt));
+    setObj(parameterIndex, (long) theInt);
   }
 
   @Override
   public void setLong(int parameterIndex, long theLong) throws SQLException {
     ensureCap(parameterIndex);
-    setObj(parameterIndex, new Long(theLong));
+    setObj(parameterIndex, theLong);
   }
 
   @Override
@@ -705,7 +694,7 @@ public class SQLDroidPreparedStatement implements PreparedStatement {
   public void setShort(int parameterIndex, short theShort)
   throws SQLException {
     ensureCap(parameterIndex);
-    setObj(parameterIndex, new Long(theShort));
+    setObj(parameterIndex, (long) theShort);
   }
 
   @Override
