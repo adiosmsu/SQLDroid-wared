@@ -1,8 +1,6 @@
 package org.sqldroid;
 
-import android.annotation.TargetApi;
 import android.database.Cursor;
-import android.os.Build;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -166,7 +164,6 @@ public class SQLDroidResultSet implements ResultSet {
     return getBigDecimal(index, 0);
   }
 
-  @TargetApi(Build.VERSION_CODES.GINGERBREAD)
   @Override
   public BigDecimal getBigDecimal(int colID, int scale) throws SQLException {
     lastColumnRead = colID;
