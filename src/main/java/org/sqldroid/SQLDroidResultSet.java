@@ -155,40 +155,46 @@ public class SQLDroidResultSet implements ResultSet {
 
   @Override
   public BigDecimal getBigDecimal(int colID) throws SQLException {
-    return getBigDecimal(colID, 0);
+    return getBigDecimalInner(colID, null);
   }
 
   @Override
   public BigDecimal getBigDecimal(String columnName) throws SQLException {
     int index = findColumn(columnName);
-    return getBigDecimal(index, 0);
+    return getBigDecimalInner(index, null);
   }
 
   @Override
   public BigDecimal getBigDecimal(int colID, int scale) throws SQLException {
-    lastColumnRead = colID;
-    int newIndex = ci(colID);
-    try {
-      switch(SQLDroidResultSetMetaData.getType(c, newIndex)) {
-        case 2:
-          return BigDecimal.valueOf(c.getDouble(newIndex)).setScale(scale, BigDecimal.ROUND_HALF_DOWN);
-        case 1: // Cursor.FIELD_TYPE_INTEGER:
-          return BigDecimal.valueOf(c.getLong(newIndex), scale);
-        case 0: // Cursor.FIELD_TYPE_NULL:
-          return null;
-        case 3: // Cursor.FIELD_TYPE_STRING:
-        default:
-          return new BigDecimal(c.getString(newIndex)).setScale(scale, BigDecimal.ROUND_HALF_DOWN);
-      }
-    } catch (RuntimeException e) {
-      throw new SQLDataException("Requested BigDecimal from incapable ResultSet", e);
-    }
+    return getBigDecimalInner(colID, scale);
   }
 
   @Override
   public BigDecimal getBigDecimal(String columnName, int scale) throws SQLException {
     int index = findColumn(columnName);
-    return getBigDecimal(index, scale);
+    return getBigDecimalInner(index, scale);
+  }
+
+  private BigDecimal getBigDecimalInner(int colID, Integer scale) throws SQLException {
+    lastColumnRead = colID;
+    int newIndex = ci(colID);
+    try {
+      switch(SQLDroidResultSetMetaData.getType(c, newIndex)) {
+        case 2: // Cursor.FIELD_TYPE_FLOAT
+          final BigDecimal bigDecimal = BigDecimal.valueOf(c.getDouble(newIndex));
+          return scale != null ? bigDecimal.setScale(scale, BigDecimal.ROUND_HALF_DOWN) : bigDecimal;
+        case 1: // Cursor.FIELD_TYPE_INTEGER:
+          return scale != null ? BigDecimal.valueOf(c.getLong(newIndex), scale) : BigDecimal.valueOf(c.getLong(newIndex));
+        case 0: // Cursor.FIELD_TYPE_NULL:
+          return null;
+        case 3: // Cursor.FIELD_TYPE_STRING:
+        default:
+          final BigDecimal bigDecimal1 = new BigDecimal(c.getString(newIndex));
+          return scale != null ? bigDecimal1.setScale(scale, BigDecimal.ROUND_HALF_DOWN) : bigDecimal1;
+      }
+    } catch (RuntimeException e) {
+      throw new SQLDataException("Requested BigDecimal from incapable ResultSet", e);
+    }
   }
 
   @Override
